@@ -50,7 +50,7 @@ ApplicationWindow {
             spacing: 12
 
             Text {
-                text: "✨"
+                text: "."
                 font.pixelSize: 32
                 Layout.alignment: Qt.AlignVCenter
             }
