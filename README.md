@@ -6,18 +6,6 @@ This tool is designed to work exclusively with main directories like `Documents`
 
 ---
 
-## Features
-
-- **🎨 Premium Dark UI**: Obsidian/Slate dark mode layout built using custom Qt Quick components with micro-animations.
-- **⚡ Quick Select Cards**: One-click selection for system `Downloads` and `Documents` folders.
-- **📂 Manual Folder Selection**: Standard browser dialog and direct text input support.
-- **🛡️ Directory Validation**: Safeguards against invalid paths or folders that do not match the case-sensitive name check (`Documents` or `Downloads`).
-- **📟 Live Terminal Logging**: Monospaced activity log showing moved items in real time, with automatic scroll tracking.
-- **🧵 Responsive Multithreading**: Background sorting worker keeps the interface interactive and responsive.
-- **💻 CLI & Scripting Support**: Standard terminal command execution remains fully supported.
-
----
-
 ## Folder Categories
 
 Files are sorted at the top level of the folder (non-recursively) into the following subfolders based on extension:
