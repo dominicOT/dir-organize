@@ -1,8 +1,4 @@
-# Smart Directory Organizer
-
-A modern, fast, and secure desktop utility built with **Python**, **PySide6**, and **Qt Quick (QML)** that organizes messy directories into clean, categorized folders by file type.
-
-This tool is designed to work exclusively with main directories like `Documents` and `Downloads` (case-sensitive) to prevent accidental sorting of system or development workspace directories.
+# Arm A
 
 ---
 
@@ -52,9 +48,6 @@ Run the script without any parameters to launch the GUI:
 python3 sortar.py
 ```
 
-- Select either **Downloads** or **Documents** from the quick selection cards, or click **Browse...** to pick another path.
-- Click **Organize Folder Now** to start.
-
 ### Command-line Mode (CLI Mode)
 
 To integrate organizing in terminal scripts or cron tasks, specify the path as an argument:
@@ -67,5 +60,3 @@ python3 sortar.py /home/username/Downloads
 
 ---
 
-## License
-MIT License

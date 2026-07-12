@@ -21,10 +21,6 @@ FILE_TYPES = {
 EXTENSION_MAP = {ext: folder for folder, exts in FILE_TYPES.items() for ext in exts}
 
 def validate_directory(target_dir):
-    """
-    Validate that the path exists, is a directory, and its name is exactly 
-    'Documents' or 'Downloads' (case-sensitive).
-    """
     path = Path(target_dir).resolve()
     if not path.exists():
         return False, f"Error: directory '{target_dir}' does not exist."
@@ -44,7 +40,6 @@ def organize_downloads(target_dir):
     print(f"Organizing in '{target_path}'...\n")
     moved_count = 0
 
-    # iterdir() - (not recursive), only top level
     for item in target_path.iterdir():
         if item.is_dir() or item.name.startswith('.'):
             continue
@@ -54,7 +49,6 @@ def organize_downloads(target_dir):
         if file_ext in EXTENSION_MAP:
             folder_name = EXTENSION_MAP[file_ext]
             dest_folder = target_path / folder_name
-            
             dest_folder.mkdir(exist_ok=True)
             
             dest_path = dest_folder / item.name
@@ -96,11 +90,15 @@ def run_gui():
         validationError = Signal(str)
         logsCleared = Signal()
 
-        # Thread-safe helper signals to request UI updates from the worker thread
+        # Thread-safe helper signals
         _appendLogRequested = Signal(str)
         _progressRequested = Signal(float)
         _statusRequested = Signal(str)
         _processingRequested = Signal(bool)
+
+        # Futuristic signals
+        fileMoved = Signal(str, str)      # filename, folder_name
+        playSoundRequested = Signal(str)  # sound name: scan, move, success, error
 
         def __init__(self):
             super().__init__()
@@ -110,13 +108,12 @@ def run_gui():
             self._log_text = ""
             self._progress = 0.0
 
-            # Gather system information for quick selections
             self._home_downloads = str(Path.home() / "Downloads")
             self._home_documents = str(Path.home() / "Documents")
             self._downloads_exists = (Path.home() / "Downloads").is_dir()
             self._documents_exists = (Path.home() / "Documents").is_dir()
 
-            # Connect helper signals to handlers that run safely on the main GUI thread
+            # Connect signals
             self._appendLogRequested.connect(self._handle_append_log)
             self._progressRequested.connect(self._handle_progress)
             self._statusRequested.connect(self._handle_status)
@@ -173,33 +170,22 @@ def run_gui():
                 self.progressChanged.emit(val)
 
         @Property(str, constant=True)
-        def homeDownloads(self):
-            return self._home_downloads
-
+        def homeDownloads(self): return self._home_downloads
         @Property(str, constant=True)
-        def homeDocuments(self):
-            return self._home_documents
-
+        def homeDocuments(self): return self._home_documents
         @Property(bool, constant=True)
-        def downloadsExists(self):
-            return self._downloads_exists
-
+        def downloadsExists(self): return self._downloads_exists
         @Property(bool, constant=True)
-        def documentsExists(self):
-            return self._documents_exists
+        def documentsExists(self): return self._documents_exists
 
-        # Handlers for thread-safe UI updates
-        def _handle_append_log(self, text):
-            self.logText += text
+        def _handle_append_log(self, text): self.logText += text
+        def _handle_progress(self, val): self.progress = val
+        def _handle_status(self, text): self.statusMessage = text
+        def _handle_processing(self, val): self.isProcessing = val
 
-        def _handle_progress(self, val):
-            self.progress = val
-
-        def _handle_status(self, text):
-            self.statusMessage = text
-
-        def _handle_processing(self, val):
-            self.isProcessing = val
+        @Slot(str)
+        def playSound(self, sound_name: str):
+            self.playSoundRequested.emit(sound_name)
 
         @Slot(str)
         def setTargetDirectoryFromUrl(self, url_str):
@@ -211,16 +197,13 @@ def run_gui():
 
         @Slot()
         def startOrganizing(self):
-            if self.isProcessing:
-                return
-
+            if self.isProcessing: return
             if not self.targetDirectory:
                 self.validationError.emit("Please select or enter a directory path.")
                 return
 
             valid, err = validate_directory(self.targetDirectory)
             if not valid:
-                # Clean up "Error: " prefix for presentation in UI
                 self.validationError.emit(err.replace("Error: ", ""))
                 return
 
@@ -229,6 +212,7 @@ def run_gui():
             self._statusRequested.emit("Scanning directory...")
             self.logText = ""
             self.logsCleared.emit()
+            self.playSound("scan")
 
             import threading
             thread = threading.Thread(target=self._organize_worker, args=(self.targetDirectory,))
@@ -240,7 +224,6 @@ def run_gui():
             self._appendLogRequested.emit(f"Scanning target directory '{target_path}'...\n")
             
             try:
-                # Get files directly under target_dir (non-recursive)
                 items = [item for item in target_path.iterdir() if item.is_file() and not item.name.startswith('.')]
                 total_items = len(items)
 
@@ -260,7 +243,6 @@ def run_gui():
                     if file_ext in EXTENSION_MAP:
                         folder_name = EXTENSION_MAP[file_ext]
                         dest_folder = target_path / folder_name
-                        
                         dest_folder.mkdir(exist_ok=True)
                         dest_path = dest_folder / item.name
                         
@@ -272,26 +254,30 @@ def run_gui():
                         try:
                             shutil.move(str(item), str(dest_path))
                             self._appendLogRequested.emit(f"Moved: {item.name} ➔ {folder_name}/\n")
+                            self.fileMoved.emit(item.name, folder_name)
+                            self.playSound("move")
                             moved_count += 1
                         except PermissionError:
                             self._appendLogRequested.emit(f"Skipped (Permission Denied): {item.name}\n")
+                            self.playSound("error")
                         except Exception as e:
                             self._appendLogRequested.emit(f"Error moving {item.name}: {e}\n")
+                            self.playSound("error")
                     
                     self._progressRequested.emit((idx + 1) / total_items)
                 
                 self._appendLogRequested.emit(f"\n--- Finished! Successfully organized {moved_count} file(s).")
                 self._statusRequested.emit(f"Finished organizing {target_path.name}!")
+                self.playSound("success")
             except Exception as e:
                 self._statusRequested.emit("Error during organization.")
                 self._appendLogRequested.emit(f"Critical Error: {e}\n")
+                self.playSound("error")
             finally:
                 self._processingRequested.emit(False)
 
     app = QGuiApplication(sys.argv)
-    
     bridge = OrganizerBridge()
-    
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("dirBridge", bridge)
     
